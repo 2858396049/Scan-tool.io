@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>扫描效果PDF生成器</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 30px;
+        }
+        
+        @media (max-width: 1024px) {
+            .main-content { grid-template-columns: 1fr; }
+        }
+        
+        .controls-panel {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+        
+        .controls-panel h2 {
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .control-group input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+        
+        .value-display {
+            display: inline-block;
+            margin-left: 10px;
+            padding: 2px 8px;
+            background: #f0f0f0;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover { background: #5a6fd6; }
+        .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+        
+        .btn-secondary {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .btn-secondary:hover { background: #38a169; }
+        .btn-secondary:disabled { background: #ccc; cursor: not-allowed; }
+        
+        .preview-panel {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 60px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+        
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        
+        .file-info {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        /* 预览区 */
+        .preview-container {
+            min-height: 600px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+            padding: 20px;
+            position: relative;
+        }
+        
+        .preview-container canvas {
+            max-width: 100%;
+            max-height: 700px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            background: white;
+        }
+        
+        .page-nav-btn {
+            width: 50px;
+            height: 50px;
+            border: none;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            flex-shrink: 0;
+            margin: 0 10px;
+        }
+        
+        .page-nav-btn:hover {
+            background: #5a6fd6;
+            transform: scale(1.1);
+        }
+        
+        .page-nav-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .page-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        
+        .placeholder {
+            text-align: center;
+            color: #999;
+        }
+        
+        .placeholder .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 30px;
+            margin-top: 40px;
+            color: #666;
+        }
+        
+        /* 自动提示样式 */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 14px;
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+        
+        .toast.success {
+            background: rgba(72, 187, 120, 0.9);
+        }
+        
+        .toast.error {
+            background: rgba(245, 101, 101, 0.9);
+        }
+        
+        /* 颜色模式切换 - 简洁按钮式 */
+        .mode-switch {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .mode-btn {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+            color: #64748b;
+        }
+        
+        .mode-btn:hover {
+            border-color: #cbd5e1;
+            background: #f8fafc;
+        }
+        
+        .mode-btn.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+        
+        .mode-icon {
+            font-size: 18px;
+        }
+        
+        /* 使用说明按钮 */
+        .help-section {
+            text-align: center;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .help-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .help-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .help-icon {
+            font-size: 20px;
+        }
+        
+        /* 弹窗样式 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .modal-overlay.show {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease;
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .modal-header h2 {
+            font-size: 1.5em;
+            margin: 0;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 30px;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+        
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .modal-body {
+            padding: 25px;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+            line-height: 1.8;
+            color: #333;
+        }
+        
+        .modal-body h1 {
+            font-size: 1.8em;
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .modal-body h2 {
+            font-size: 1.3em;
+            color: #764ba2;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+        
+        .modal-body h3 {
+            font-size: 1.1em;
+            color: #555;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .modal-body p {
+            margin-bottom: 12px;
+        }
+        
+        .modal-body ul, .modal-body ol {
+            margin-bottom: 15px;
+            padding-left: 25px;
+        }
+        
+        .modal-body li {
+            margin-bottom: 8px;
+        }
+        
+        .modal-body table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        .modal-body th, .modal-body td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        
+        .modal-body th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .modal-body code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        
+        .modal-body hr {
+            border: none;
+            border-top: 1px solid #eee;
+            margin: 20px 0;
+        }
+        
+        .modal-body strong {
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="toast" id="toast"></div>
+    
+    <!-- 使用说明弹窗 -->
+    <div class="modal-overlay" id="helpModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📖 使用说明</h2>
+                <button class="modal-close" onclick="closeHelp()">&times;</button>
+            </div>
+            <div class="modal-body" id="helpContent">
+                <!-- 使用说明内容将在这里显示 -->
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <header>
+            <h1>📄 扫描效果PDF生成器</h1>
+            <p>上传 PDF 或图片，生成逼真的扫描效果</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="controls-panel">
+                <h2>⚙️ 扫描设置</h2>
+                
+                <div class="control-group">
+                    <label>颜色模式</label>
+                    <div class="mode-switch">
+                        <button class="mode-btn active" data-mode="color" id="colorBtn">
+                            <span class="mode-icon">🌈</span>
+                            <span>彩色</span>
+                        </button>
+                        <button class="mode-btn" data-mode="grayscale" id="grayBtn">
+                            <span class="mode-icon">⚫</span>
+                            <span>黑白</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>亮度 <span class="value-display" id="brightnessValue">100%</span></label>
+                    <input type="range" id="brightness" min="50" max="150" value="100">
+                </div>
+                
+                <div class="control-group">
+                    <label>对比度 <span class="value-display" id="contrastValue">100%</span></label>
+                    <input type="range" id="contrast" min="50" max="150" value="100">
+                </div>
+                
+                <div class="control-group">
+                    <label>模糊 <span class="value-display" id="blurValue">30%</span></label>
+                    <input type="range" id="blur" min="0" max="100" value="30">
+                </div>
+                
+                <div class="control-group">
+                    <label>旋转角度 <span class="value-display" id="rotationValue">1°</span></label>
+                    <input type="range" id="rotation" min="-5" max="5" value="1" step="0.1">
+                </div>
+                
+                <div class="control-group">
+                    <label>旋转随机度 <span class="value-display" id="rotationRandomValue">0.5°</span></label>
+                    <input type="range" id="rotationRandom" min="0" max="2" value="0.5" step="0.1">
+                </div>
+                
+                <div class="control-group">
+                    <label>噪点 <span class="value-display" id="noiseValue">10%</span></label>
+                    <input type="range" id="noise" min="0" max="50" value="10">
+                </div>
+                
+                <div class="control-group">
+                    <label>发黄 <span class="value-display" id="yellowingValue">0%</span></label>
+                    <input type="range" id="yellowing" min="0" max="50" value="0">
+                </div>
+                
+                <button class="btn btn-primary" id="actionBtn" disabled>生成扫描版PDF</button>
+            </div>
+            
+            <div class="preview-panel">
+                <div class="upload-area" id="uploadArea">
+                    <div style="font-size: 48px; margin-bottom: 15px;">📁</div>
+                    <h3>点击或拖拽上传文件</h3>
+                    <p>支持 PDF、所有图片格式</p>
+                    <p style="font-size: 12px; color: #888; margin-top: 8px;">💡 Word/Excel/PPT等文档 请先导出为 PDF</p>
+                    <input type="file" id="fileInput" style="display: none;" accept=".pdf,.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg,.ico,.tiff,.tif,.avif,.heic,.heif">
+                </div>
+                
+                <div class="file-info" id="fileInfo"></div>
+                
+                <div class="preview-container" id="previewContainer">
+                    <div class="placeholder">
+                        <div class="icon">📄</div>
+                        <p>上传文件后将显示预览</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="help-section">
+            <button class="help-btn" onclick="openHelp()">
+                <span class="help-icon">📖</span>
+                <span>使用说明</span>
+            </button>
+        </div>
+        
+        <footer>
+            <p>2026 扫描效果PDF生成器 | 使用 ← → 键翻页</p>
+            <p style="margin-top: 10px; font-size: 14px;">© 惠州市公安局-刘晓龙</p>
+        </footer>
+    </div>
+
+    <!-- 库文件 -->
+    <script src="lib/pdf.min.js"></script>
+    <script src="lib/html2canvas.min.js"></script>
+    <script src="lib/jspdf.umd.min.js"></script>
+    
+    <script>
+        // 全局变量
+        let originalCanvases = [];  // 原始页面 canvas
+        let processedCanvases = []; // 处理后的 canvas
+        let currentPage = 0;
+        let totalPages = 0;
+        let isProcessing = false;
+        let originalFileName = '';  // 原始文件名（不含扩展名）
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdf.worker.min.js';
+            bindEvents();
+            bindSliders();
+        });
+        
+        // 绑定事件
+        function bindEvents() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            
+            uploadArea.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFileSelect);
+            
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#667eea';
+            });
+            
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.style.borderColor = '#ccc';
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#ccc';
+                const file = e.dataTransfer.files[0];
+                if (file) processFile(file);
+            });
+            
+            document.getElementById('actionBtn').addEventListener('click', handleActionBtn);
+            
+            // 键盘导航
+            document.addEventListener('keydown', (e) => {
+                if (totalPages <= 1) return;
+                if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    navigatePage(-1);
+                } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    navigatePage(1);
+                }
+            });
+        }
+        
+        // 绑定滑块 - 实时预览
+        function bindSliders() {
+            const sliders = [
+                { id: 'brightness', suffix: '%' },
+                { id: 'contrast', suffix: '%' },
+                { id: 'blur', suffix: '%' },
+                { id: 'rotation', suffix: '°' },
+                { id: 'rotationRandom', suffix: '°' },
+                { id: 'noise', suffix: '%' },
+                { id: 'yellowing', suffix: '%' }
+            ];
+            
+            sliders.forEach(({ id, suffix }) => {
+                const slider = document.getElementById(id);
+                const display = document.getElementById(id + 'Value');
+                
+                // 输入时更新显示值
+                slider.addEventListener('input', () => {
+                    display.textContent = slider.value + suffix;
+                });
+                
+                // 松开后实时更新预览
+                slider.addEventListener('change', () => {
+                    if (originalCanvases.length > 0) {
+                        updatePreview();
+                    }
+                });
+            });
+            
+            // 颜色模式按钮点击事件
+            document.getElementById('colorBtn').addEventListener('click', () => {
+                document.getElementById('colorBtn').classList.add('active');
+                document.getElementById('grayBtn').classList.remove('active');
+                if (originalCanvases.length > 0) {
+                    updatePreview();
+                }
+            });
+            
+            document.getElementById('grayBtn').addEventListener('click', () => {
+                document.getElementById('grayBtn').classList.add('active');
+                document.getElementById('colorBtn').classList.remove('active');
+                if (originalCanvases.length > 0) {
+                    updatePreview();
+                }
+            });
+        }
+        
+        // 处理文件选择
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) processFile(file);
+            e.target.value = '';
+        }
+        
+        // 处理文件
+        async function processFile(file) {
+            if (isProcessing) return;
+            isProcessing = true;
+            
+            console.log('处理文件:', file.name);
+            
+            // 保存原始文件名（不含扩展名）
+            const lastDotIndex = file.name.lastIndexOf('.');
+            originalFileName = lastDotIndex > 0 ? file.name.substring(0, lastDotIndex) : file.name;
+            
+            // 显示文件信息
+            const fileInfo = document.getElementById('fileInfo');
+            fileInfo.style.display = 'block';
+            fileInfo.innerHTML = `<strong>${file.name}</strong> (${(file.size/1024).toFixed(1)} KB)`;
+            
+            try {
+                const ext = file.name.toLowerCase().split('.').pop();
+                
+                // 支持的图片格式
+                const imageFormats = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'avif', 'heic', 'heif'];
+                
+                if (ext === 'pdf') {
+                    await processPDF(file);
+                } else if (imageFormats.includes(ext)) {
+                    await processImage(file);
+                } else {
+                    throw new Error('不支持的文件格式，仅支持 PDF 和图片格式');
+                }
+                
+            } catch (error) {
+                console.error('处理失败:', error);
+                showToast('处理失败: ' + error.message, 'error');
+            }
+            
+            isProcessing = false;
+        }
+        
+        // 处理 PDF
+        async function processPDF(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            
+            totalPages = pdf.numPages;
+            originalCanvases = [];
+            
+            console.log('PDF 页数:', totalPages);
+            
+            // 渲染所有页面
+            for (let i = 1; i <= totalPages; i++) {
+                console.log(`渲染第 ${i}/${totalPages} 页...`);
+                const page = await pdf.getPage(i);
+                const scale = 2;
+                const viewport = page.getViewport({ scale });
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                
+                await page.render({
+                    canvasContext: canvas.getContext('2d'),
+                    viewport
+                }).promise;
+                
+                originalCanvases.push(canvas);
+            }
+            
+            // 显示预览
+            currentPage = 0;
+            updatePreview();
+            
+            setBtnState('ready');
+        }
+        
+        // 处理图片
+        async function processImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        canvas.getContext('2d').drawImage(img, 0, 0);
+                        
+                        originalCanvases = [canvas];
+                        totalPages = 1;
+                        currentPage = 0;
+                        
+                        updatePreview();
+                        
+                        setBtnState('ready');
+                        resolve();
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // 更新预览（应用扫描效果）
+        async function updatePreview() {
+            if (originalCanvases.length === 0) return;
+            
+            console.log('更新预览...');
+            
+            // 获取参数
+            const brightness = parseInt(document.getElementById('brightness').value);
+            const contrast = parseInt(document.getElementById('contrast').value);
+            const blur = parseInt(document.getElementById('blur').value);
+            const rotation = parseFloat(document.getElementById('rotation').value);
+            const rotationRandom = parseFloat(document.getElementById('rotationRandom').value);
+            const noise = parseInt(document.getElementById('noise').value);
+            const yellowing = parseInt(document.getElementById('yellowing').value);
+            const colorMode = document.getElementById('colorBtn').classList.contains('active') ? 'color' : 'grayscale';
+            
+            // 处理所有页面
+            processedCanvases = [];
+            
+            for (let i = 0; i < originalCanvases.length; i++) {
+                const original = originalCanvases[i];
+                const processed = await applyScanEffects(original, {
+                    brightness, contrast, blur, rotation, rotationRandom,
+                    noise, yellowing, colorMode
+                });
+                processedCanvases.push(processed);
+            }
+            
+            // 显示当前页
+            displayCurrentPage();
+        }
+        
+        // 显示当前页
+        function displayCurrentPage() {
+            const container = document.getElementById('previewContainer');
+            container.innerHTML = '';
+            
+            if (processedCanvases.length === 0) return;
+            
+            // 创建导航按钮
+            const prevBtn = document.createElement('button');
+            prevBtn.className = 'page-nav-btn';
+            prevBtn.innerHTML = '◀';
+            prevBtn.disabled = currentPage === 0;
+            prevBtn.onclick = () => navigatePage(-1);
+            
+            const nextBtn = document.createElement('button');
+            nextBtn.className = 'page-nav-btn';
+            nextBtn.innerHTML = '▶';
+            nextBtn.disabled = currentPage === processedCanvases.length - 1;
+            nextBtn.onclick = () => navigatePage(1);
+            
+            // 显示当前页 canvas
+            const canvas = processedCanvases[currentPage];
+            canvas.style.maxWidth = '100%';
+            canvas.style.maxHeight = '700px';
+            
+            // 页码指示器
+            const indicator = document.createElement('div');
+            indicator.className = 'page-indicator';
+            indicator.textContent = `${currentPage + 1} / ${processedCanvases.length}`;
+            
+            container.appendChild(prevBtn);
+            container.appendChild(canvas);
+            container.appendChild(nextBtn);
+            container.appendChild(indicator);
+        }
+        
+        // 导航页面
+        function navigatePage(direction) {
+            const newPage = currentPage + direction;
+            if (newPage >= 0 && newPage < processedCanvases.length) {
+                currentPage = newPage;
+                displayCurrentPage();
+            }
+        }
+        
+        // 应用扫描效果
+        async function applyScanEffects(canvas, params) {
+            // 创建新 canvas
+            const newCanvas = document.createElement('canvas');
+            newCanvas.width = canvas.width;
+            newCanvas.height = canvas.height;
+            const ctx = newCanvas.getContext('2d');
+            
+            // 填充白色背景（关键修复）
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, newCanvas.width, newCanvas.height);
+            
+            // 计算旋转
+            const totalRotation = params.rotation + (Math.random() - 0.5) * 2 * params.rotationRandom;
+            const angleRad = Math.abs(totalRotation) * Math.PI / 180;
+            const scale = Math.min(
+                canvas.width / (canvas.width * Math.cos(angleRad) + canvas.height * Math.sin(angleRad)),
+                canvas.height / (canvas.width * Math.sin(angleRad) + canvas.height * Math.cos(angleRad))
+            );
+            
+            // 应用旋转和滤镜
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(totalRotation * Math.PI / 180);
+            ctx.scale(scale, scale);
+            ctx.filter = `brightness(${params.brightness}%) contrast(${params.contrast}%) blur(${params.blur / 100}px)`;
+            ctx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
+            ctx.restore();
+            
+            // 应用像素级效果
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                let r = data[i];
+                let g = data[i + 1];
+                let b = data[i + 2];
+                
+                // 灰度模式
+                if (params.colorMode === 'grayscale') {
+                    const gray = (r + g + b) / 3;
+                    r = g = b = gray;
+                }
+                
+                // 噪点
+                if (params.noise > 0) {
+                    const n = (Math.random() - 0.5) * params.noise * 2;
+                    r += n;
+                    g += n;
+                    b += n;
+                }
+                
+                // 发黄
+                if (params.yellowing > 0) {
+                    r += params.yellowing * 1.5;
+                    g += params.yellowing * 0.8;
+                    b -= params.yellowing * 0.3;
+                }
+                
+                // 限制范围
+                data[i] = Math.max(0, Math.min(255, r));
+                data[i + 1] = Math.max(0, Math.min(255, g));
+                data[i + 2] = Math.max(0, Math.min(255, b));
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+            
+            // 边缘阴影
+            applyEdgeShadow(ctx, canvas.width, canvas.height);
+            
+            return newCanvas;
+        }
+        
+        // 边缘阴影 - 轻度阴影效果
+        function applyEdgeShadow(ctx, width, height) {
+            const w = 30; // 阴影宽度
+            
+            // 左边缘 - 更轻的阴影
+            const lg = ctx.createLinearGradient(0, 0, w, 0);
+            lg.addColorStop(0, 'rgba(0,0,0,0.06)');
+            lg.addColorStop(0.5, 'rgba(0,0,0,0.02)');
+            lg.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = lg;
+            ctx.fillRect(0, 0, w, height);
+            
+            // 右边缘
+            const rg = ctx.createLinearGradient(width - w, 0, width, 0);
+            rg.addColorStop(0, 'rgba(0,0,0,0)');
+            rg.addColorStop(0.5, 'rgba(0,0,0,0.02)');
+            rg.addColorStop(1, 'rgba(0,0,0,0.06)');
+            ctx.fillStyle = rg;
+            ctx.fillRect(width - w, 0, w, height);
+            
+            // 上边缘
+            const tg = ctx.createLinearGradient(0, 0, 0, w);
+            tg.addColorStop(0, 'rgba(0,0,0,0.06)');
+            tg.addColorStop(0.5, 'rgba(0,0,0,0.02)');
+            tg.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = tg;
+            ctx.fillRect(0, 0, width, w);
+            
+            // 下边缘
+            const bg = ctx.createLinearGradient(0, height - w, 0, height);
+            bg.addColorStop(0, 'rgba(0,0,0,0)');
+            bg.addColorStop(0.5, 'rgba(0,0,0,0.02)');
+            bg.addColorStop(1, 'rgba(0,0,0,0.06)');
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, height - w, width, w);
+            
+            // 添加角落的柔和阴影
+            const cornerSize = 40;
+            
+            // 左上角
+            const tlGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, cornerSize);
+            tlGrad.addColorStop(0, 'rgba(0,0,0,0.08)');
+            tlGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = tlGrad;
+            ctx.fillRect(0, 0, cornerSize, cornerSize);
+            
+            // 右上角
+            const trGrad = ctx.createRadialGradient(width, 0, 0, width, 0, cornerSize);
+            trGrad.addColorStop(0, 'rgba(0,0,0,0.08)');
+            trGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = trGrad;
+            ctx.fillRect(width - cornerSize, 0, cornerSize, cornerSize);
+            
+            // 左下角
+            const blGrad = ctx.createRadialGradient(0, height, 0, 0, height, cornerSize);
+            blGrad.addColorStop(0, 'rgba(0,0,0,0.08)');
+            blGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = blGrad;
+            ctx.fillRect(0, height - cornerSize, cornerSize, cornerSize);
+            
+            // 右下角
+            const brGrad = ctx.createRadialGradient(width, height, 0, width, height, cornerSize);
+            brGrad.addColorStop(0, 'rgba(0,0,0,0.08)');
+            brGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = brGrad;
+            ctx.fillRect(width - cornerSize, height - cornerSize, cornerSize, cornerSize);
+        }
+        
+        // 打开使用说明弹窗
+        function openHelp() {
+            const modal = document.getElementById('helpModal');
+            const content = document.getElementById('helpContent');
+            
+            // 使用说明内容（Markdown 转 HTML）
+            const helpText = `
+                <h1>📄 扫描效果PDF生成器 - 使用说明</h1>
+                
+                <h2>📋 软件简介</h2>
+                <p>扫描效果PDF生成器是一款纯浏览器端的PDF和图片处理工具，可以为您的文档添加逼真的扫描效果，包括边缘阴影、轻微旋转、噪点等，让电子文档看起来像真实的扫描件。</p>
+                
+                <p><strong>特点：</strong></p>
+                <ul>
+                    <li>✅ 纯前端处理，无需网络，保护隐私</li>
+                    <li>✅ 支持离线/内网使用</li>
+                    <li>✅ 支持PDF和多格式图片</li>
+                    <li>✅ 实时预览效果</li>
+                    <li>✅ 一键生成下载</li>
+                </ul>
+                
+                <h2>🚀 快速开始</h2>
+                
+                <h3>1. 打开软件</h3>
+                <p>双击 <code>index.html</code> 文件，在浏览器中打开。</p>
+                <p><strong>支持的浏览器：</strong>Chrome / Edge（推荐）、Firefox、Safari</p>
+                
+                <h3>2. 上传文件</h3>
+                <p>点击上传区域，或拖拽文件到页面中。</p>
+                <p><strong>支持的格式：</strong></p>
+                <ul>
+                    <li>PDF 文件 (.pdf)</li>
+                    <li>图片文件 (.jpg, .jpeg, .png, .gif, .bmp, .webp, .svg, .ico, .tiff, .tif, .avif, .heic, .heif)</li>
+                </ul>
+                
+                <h3>3. 调整扫描效果</h3>
+                <p>在左侧控制面板调整参数：</p>
+                <table>
+                    <tr><th>参数</th><th>说明</th><th>默认值</th></tr>
+                    <tr><td>颜色模式</td><td>彩色/黑白切换</td><td>彩色</td></tr>
+                    <tr><td>亮度</td><td>调整整体亮度</td><td>100%</td></tr>
+                    <tr><td>对比度</td><td>调整对比度</td><td>100%</td></tr>
+                    <tr><td>模糊</td><td>模拟扫描模糊度</td><td>30%</td></tr>
+                    <tr><td>旋转角度</td><td>页面整体旋转</td><td>1°</td></tr>
+                    <tr><td>旋转随机度</td><td>每页随机旋转范围</td><td>0.5°</td></tr>
+                    <tr><td>噪点</td><td>添加扫描噪点</td><td>10%</td></tr>
+                    <tr><td>发黄</td><td>模拟纸张老化</td><td>0%</td></tr>
+                </table>
+                
+                <h3>4. 生成并下载</h3>
+                <p>点击 <strong>"生成扫描版PDF"</strong> 按钮，等待处理完成后，按钮变为 <strong>"⬇️ 下载PDF"</strong>，点击即可下载。</p>
+                
+                <h2>🎨 效果说明</h2>
+                
+                <h3>边缘阴影</h3>
+                <p>模拟真实扫描时纸张边缘的阴影效果，让文档看起来更自然。</p>
+                
+                <h3>轻微旋转</h3>
+                <p>模拟扫描时纸张放置不正的效果，增加真实感。</p>
+                
+                <h3>噪点</h3>
+                <p>添加扫描仪产生的噪点，模拟真实扫描质量。</p>
+                
+                <h3>发黄</h3>
+                <p>模拟老旧纸张的颜色，适合制作复古风格的扫描件。</p>
+                
+                <h2>⌨️ 快捷键</h2>
+                <table>
+                    <tr><th>快捷键</th><th>功能</th></tr>
+                    <tr><td>← 左箭头</td><td>上一页</td></tr>
+                    <tr><td>→ 右箭头</td><td>下一页</td></tr>
+                </table>
+                
+                <h2>💡 使用技巧</h2>
+                
+                <h3>制作逼真的扫描件</h3>
+                <ol>
+                    <li>设置<strong>旋转角度</strong>为 0.5-2°</li>
+                    <li>设置<strong>模糊</strong>为 20-40%</li>
+                    <li>添加少量<strong>噪点</strong>（10-20%）</li>
+                    <li>如需复古效果，可添加<strong>发黄</strong></li>
+                </ol>
+                
+                <h3>批量处理</h3>
+                <p>PDF文件会自动分页处理，每页都会应用扫描效果。</p>
+                
+                <h3>预览调整</h3>
+                <p>调整参数后会实时更新预览，可以边调整边查看效果。</p>
+                
+                <h3>其他文档格式处理</h3>
+                <p>如需为 Word、Excel、PPT 等文档添加扫描效果，请按以下步骤操作：</p>
+                <ol>
+                    <li>在对应软件中打开文档</li>
+                    <li>选择"文件" → "另存为" 或 "导出"</li>
+                    <li>选择 PDF 格式并保存</li>
+                    <li>将生成的 PDF 文件上传至本工具进行处理</li>
+                </ol>
+                <p><strong>提示：</strong>导出 PDF 时可保留原文档的排版格式，确保扫描效果更加真实自然。</p>
+                
+                <h2>⚠️ 注意事项</h2>
+                <ol>
+                    <li><strong>文件大小</strong>：建议上传的文件不超过 50MB，过大的文件可能导致处理缓慢</li>
+                    <li><strong>浏览器内存</strong>：处理大量页面时，请确保电脑有足够的内存</li>
+                    <li><strong>隐私安全</strong>：所有处理都在浏览器本地完成，文件不会上传到任何服务器</li>
+                    <li><strong>兼容性</strong>：部分特殊格式的图片可能无法正常显示</li>
+                </ol>
+                
+                <h2>🔧 常见问题</h2>
+                
+                <p><strong>Q: 为什么生成的PDF背景是黑色的？</strong><br>
+                A: 已修复。现在生成的PDF背景为白色。</p>
+                
+                <p><strong>Q: 支持哪些图片格式？</strong><br>
+                A: 支持几乎所有常见格式：JPG、PNG、GIF、BMP、WebP、SVG、TIFF、AVIF、HEIC等。</p>
+                
+                <p><strong>Q: 可以在内网使用吗？</strong><br>
+                A: 可以。本软件完全离线运行，无需网络连接。</p>
+                
+                <p><strong>Q: 处理大文件时浏览器卡住怎么办？</strong><br>
+                A: 建议分批处理，或降低PDF的页面数量。处理过程中请勿关闭浏览器。</p>
+                
+                <h2>📞 技术支持</h2>
+                <p><strong>制作单位：</strong>惠州市公安局<br>
+                <strong>联系人：</strong>刘晓龙<br>
+                <strong>版本：</strong>2026版</p>
+                
+                <hr>
+                <p style="text-align: center; color: #667eea; font-weight: bold;">祝您使用愉快！</p>
+            `;
+            
+            content.innerHTML = helpText;
+            modal.classList.add('show');
+        }
+        
+        // 关闭使用说明弹窗
+        function closeHelp() {
+            const modal = document.getElementById('helpModal');
+            modal.classList.remove('show');
+        }
+        
+        // 点击弹窗外部关闭
+        document.getElementById('helpModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeHelp();
+            }
+        });
+        
+        // 显示自动消失的提示
+        function showToast(message, type = 'success', duration = 3000) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, duration);
+        }
+        
+        // 按钮状态管理
+        let btnState = 'idle'; // idle, ready, generating, generated
+        
+        function setBtnState(state) {
+            const btn = document.getElementById('actionBtn');
+            btnState = state;
+            
+            switch (state) {
+                case 'idle':
+                    btn.disabled = true;
+                    btn.textContent = '生成扫描版PDF';
+                    btn.className = 'btn btn-primary';
+                    break;
+                case 'ready':
+                    btn.disabled = false;
+                    btn.textContent = '生成扫描版PDF';
+                    btn.className = 'btn btn-primary';
+                    break;
+                case 'generating':
+                    btn.disabled = true;
+                    btn.textContent = '生成中...';
+                    btn.className = 'btn btn-primary';
+                    break;
+                case 'generated':
+                    btn.disabled = false;
+                    btn.textContent = '⬇️ 下载PDF';
+                    btn.className = 'btn btn-secondary';
+                    break;
+            }
+        }
+        
+        // 处理按钮点击
+        async function handleActionBtn() {
+            if (btnState === 'ready') {
+                await generateScannedPDF();
+            } else if (btnState === 'generated') {
+                downloadPDF();
+                // 下载后恢复为生成状态
+                setBtnState('ready');
+            }
+        }
+        
+        // 生成扫描版 PDF
+        async function generateScannedPDF() {
+            if (processedCanvases.length === 0) {
+                showToast('请等待文件加载完成', 'error');
+                return;
+            }
+            
+            setBtnState('generating');
+            
+            console.log('生成扫描版 PDF...');
+            
+            try {
+                // 确保已应用效果
+                if (processedCanvases.length === 0) {
+                    await updatePreview();
+                }
+                
+                // 生成成功，切换到下载状态
+                setBtnState('generated');
+                showToast(`✓ 生成成功！共 ${processedCanvases.length} 页，点击下载`, 'success', 4000);
+                
+            } catch (error) {
+                console.error('生成失败:', error);
+                showToast('生成失败: ' + error.message, 'error');
+                // 生成失败，恢复为准备状态
+                setBtnState('ready');
+            }
+        }
+        
+        // 下载 PDF
+        function downloadPDF() {
+            if (processedCanvases.length === 0) {
+                showToast('请先生成扫描版 PDF', 'error');
+                return;
+            }
+            
+            console.log('下载 PDF...');
+            
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4'
+            });
+            
+            for (let i = 0; i < processedCanvases.length; i++) {
+                if (i > 0) pdf.addPage();
+                
+                // 填充白色背景
+                pdf.setFillColor(255, 255, 255);
+                pdf.rect(0, 0, 210, 297, 'F');
+                
+                const canvas = processedCanvases[i];
+                const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                
+                const pdfWidth = 210;
+                const pdfHeight = (canvas.height / canvas.width) * pdfWidth;
+                
+                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+            }
+            
+            // 生成文件名：原文件名 + Scan.pdf
+            const downloadFileName = originalFileName ? `${originalFileName}Scan.pdf` : 'scanned_document.pdf';
+            pdf.save(downloadFileName);
+            console.log('PDF 下载完成:', downloadFileName);
+        }
+    </script>
+</body>
+</html>
